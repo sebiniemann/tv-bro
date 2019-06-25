@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
+import android.os.Bundle
 import android.util.AttributeSet
 import android.util.Size
 import android.view.Gravity
@@ -15,11 +16,14 @@ import android.webkit.WebView
 import android.widget.FrameLayout
 import android.widget.PopupMenu
 import com.phlox.tvwebbrowser.R
+import com.phlox.tvwebbrowser.model.WebTabState
+import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoView
 
 /**
  * Created by fedex on 12.08.16.
  */
-class WebViewEx : WebView {
+class WebViewEx : GeckoView {
     companion object {
         const val HOME_URL = "about:blank"
     }
@@ -52,7 +56,8 @@ class WebViewEx : WebView {
             return
         }
 
-        val browserSettings = settings
+        //TODO: make new settings
+        /*val browserSettings = settings
         browserSettings.javaScriptCanOpenWindowsAutomatically = true
         browserSettings.pluginState = WebSettings.PluginState.ON_DEMAND
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -75,10 +80,7 @@ class WebViewEx : WebView {
         browserSettings.mediaPlaybackRequiresUserGesture = false
         browserSettings.setGeolocationEnabled(true)
         browserSettings.javaScriptCanOpenWindowsAutomatically = false
-        browserSettings.setSupportMultipleWindows(false)
-
-        /*scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
-        isScrollbarFadingEnabled = false*/
+        browserSettings.setSupportMultipleWindows(false)*/
 
         setOnLongClickListener {
             evaluateJavascript(Scripts.LONG_PRESS_SCRIPT) { s ->
@@ -151,12 +153,13 @@ class WebViewEx : WebView {
         super.onDraw(canvas)
     }
 
-    override fun loadUrl(url: String?) {
+    fun loadUrl(url: String?, session: GeckoSession) {
         if (HOME_URL == url) {
             val data = context.assets.open("pages/new-tab.html").bufferedReader().use { it.readText() }
-            loadDataWithBaseURL(null, data, "text/html", "UTF-8", null)
+            //loadDataWithBaseURL(null, data, "text/html", "UTF-8", null)
+            session.loadString(data, "text/html")
         } else {
-            super.loadUrl(url)
+            session.loadUri(url!!)
         }
     }
 
@@ -169,4 +172,42 @@ class WebViewEx : WebView {
         super.draw(canvas)
         listener!!.onThumbnailReady(thumbnail)
     }
+    
+    //TODO: oh.. all of that we need to implement now
+    private fun evaluateJavascript(lonG_PRESS_SCRIPT: String, callback: (s: String) -> Unit) {
+
+    }
+
+    fun canZoomOut(): Boolean {
+        return false
+    }
+
+    fun zoomOut() {
+
+    }
+
+    fun canZoomIn(): Boolean {
+        return false
+    }
+
+    fun zoomIn() {
+
+    }
+
+    fun restoreFrom(tabState: WebTabState, geckoSession: GeckoSession) {
+        if (tabState.savedState != null) {
+            restoreState(tabState.savedState!!)
+        } else if (tabState.currentOriginalUrl != null) {
+            loadUrl(tabState.currentOriginalUrl, geckoSession)
+        }
+    }
+
+    fun restoreState(state: Bundle) {
+
+    }
+
+    fun setNetworkAvailable(networkConnected: Boolean) {
+
+    }
 }
+

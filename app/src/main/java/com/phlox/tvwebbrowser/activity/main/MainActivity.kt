@@ -85,7 +85,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private var downloadAnimation: Animation? = null
     private var fullScreenView: View? = null
     private lateinit var prefs: SharedPreferences
-    private val webViews = ArrayList<WebViewEx>()
 
     internal var progressBarHideRunnable: Runnable = Runnable {
         val anim = AnimationUtils.loadAnimation(this@MainActivity, android.R.anim.fade_out)
@@ -103,7 +102,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             val activeNetwork = cm.activeNetworkInfo
             val isConnected = activeNetwork != null && activeNetwork.isConnectedOrConnecting
             if (viewModel.currentTab.value != null) {
-                viewModel.currentTab.value!!.webView?.setNetworkAvailable(isConnected)
+                webView.setNetworkAvailable(isConnected)
             }
         }
     }
@@ -126,8 +125,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 return
             }
             if (viewModel.currentTab.value != null) {
-                viewModel.currentTab.value!!.webView?.setNeedThumbnail(thumbnailesSize)
-                viewModel.currentTab.value!!.webView?.postInvalidate()
+                webView.setNeedThumbnail(thumbnailesSize)
+                webView.postInvalidate()
             }
         }
     }
@@ -222,8 +221,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         });*/
         ibBack.setOnClickListener { navigateBack() }
         ibForward.setOnClickListener {
-            if (viewModel.currentTab.value != null && (viewModel.currentTab.value!!.webView?.canGoForward() == true)) {
-                viewModel.currentTab.value!!.webView?.goForward()
+            if (viewModel.currentTab.value != null && viewModel.currentTab.value!!.canGoForward()) {
+                viewModel.currentTab.value!!.goForward(viewModel.geckoSession)
             }
         }
         ibRefresh.setOnClickListener { refresh() }
@@ -265,7 +264,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                         imm.hideSoftInputFromWindow(etUrl!!.windowToken, 0)
                         hideMenuOverlay()
                         search(etUrl.text.toString())
-                        viewModel.currentTab.value!!.webView?.requestFocus()
+                        webView.requestFocus()
                     }
                     return@OnKeyListener true
                 }
@@ -273,16 +272,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             false
         })
 
-
         settingsViewModel.uaString.observe(this, object : Observer<String> {
             override fun onChanged(uas: String?) {
-                for (tab in viewModel.tabsStates) {
+                //TODO: implement
+                /*for (tab in viewModel.tabsStates) {
                     tab.webView?.settings?.userAgentString = uas
                     if (tab.webView != null && (uas == null || uas == "")) {
                         settingsViewModel.saveUAString(SettingsViewModel.TV_BRO_UA_PREFIX +
                                 tab.webView!!.settings.userAgentString.replace("Mobile Safari", "Safari"))
                     }
-                }
+                }*/
             }
         })
 
@@ -294,8 +293,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     fun navigateBack() {
-        if (viewModel.currentTab.value != null && viewModel.currentTab.value!!.webView?.canGoBack() == true) {
-            viewModel.currentTab.value!!.webView?.goBack()
+        if (viewModel.currentTab.value != null && viewModel.currentTab.value!!.canGoBack()) {
+            viewModel.currentTab.value!!.goBack(viewModel.geckoSession)
         } else if (llMenuOverlay.visibility != View.VISIBLE) {
             showMenuOverlay()
         } else {
@@ -305,7 +304,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     fun refresh() {
         if (viewModel.currentTab.value != null) {
-            viewModel.currentTab.value!!.webView?.reload()
+            viewModel.currentTab.value!!.reload(viewModel.geckoSession)
         }
     }
 
@@ -325,6 +324,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private fun loadState() = launch(Dispatchers.Main) {
         progressBarGeneric.visibility = View.VISIBLE
         progressBarGeneric.requestFocus()
+        webView.setSession(viewModel.geckoSession)
         viewModel.loadState().join()
 
         if (!running) {
@@ -388,9 +388,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         }
         val tab = WebTabState()
         tab.currentOriginalUrl = url
-        if (!createWebView(tab)) {
-            return
-        }
         viewModel.tabsStates.add(0, tab)
         changeTab(tab)
         navigate(url)
@@ -402,8 +399,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         when {
             viewModel.tabsStates.size == 1 -> {
                 tab.selected = false
-                tab.webView?.onPause()
-                flWebViewContainer.removeView(tab.webView)
+                tab.onPause(webView, viewModel.geckoSession)
                 viewModel.currentTab.value = null
             }
 
@@ -420,8 +416,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private fun changeTab(newTab: WebTabState) {
         if (viewModel.currentTab.value != null) {
             viewModel.currentTab.value!!.selected = false
-            viewModel.currentTab.value!!.webView?.onPause()
-            flWebViewContainer!!.removeView(viewModel.currentTab.value!!.webView)
+            viewModel.currentTab.value!!.onPause(webView, viewModel.geckoSession)
         }
 
         newTab.selected = true
@@ -430,24 +425,15 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         if (llMenuOverlay.visibility == View.GONE) {
             lvTabs.setSelection(viewModel.tabsStates.indexOf(newTab))
         }
-        if (viewModel.currentTab.value!!.webView == null) {
-            if (!createWebView(viewModel.currentTab.value!!)) {
-                return
-            }
-            viewModel.currentTab.value!!.restoreWebView()
-            flWebViewContainer!!.addView(viewModel.currentTab.value!!.webView)
-        } else {
-            flWebViewContainer!!.addView(viewModel.currentTab.value!!.webView)
-            viewModel.currentTab.value!!.webView?.onResume()
-        }
-        viewModel.currentTab.value!!.webView?.setNetworkAvailable(Utils.isNetworkConnected(this))
+        webView.restoreFrom(viewModel.currentTab.value!!, viewModel.geckoSession)
+        webView.setNetworkAvailable(Utils.isNetworkConnected(this))
 
         etUrl!!.setText(newTab.currentOriginalUrl)
-        ibBack!!.isEnabled = newTab.webView?.canGoBack() == true
-        ibForward!!.isEnabled = newTab.webView?.canGoForward() == true
+        ibBack!!.isEnabled = newTab.canGoBack()
+        ibForward!!.isEnabled = newTab.canGoForward()
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    /*@SuppressLint("SetJavaScriptEnabled")
     private fun createWebView(tab: WebTabState): Boolean {
         try {
             tab.webView = WebViewEx(this)
@@ -769,7 +755,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         }
 
         return true
-    }
+    }*/
 
     private fun showCertificateErrorHint(error: SslError) {
         llCertificateWarning.visibility = View.VISIBLE
@@ -793,15 +779,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     fun onDownloadRequested(url: String, originalDownloadFileName: String?, userAgent: String?,
                             operationAfterDownload: Download.OperationAfterDownload = Download.OperationAfterDownload.NOP) {
         viewModel.onDownloadRequested(this, url, originalDownloadFileName, userAgent, operationAfterDownload)
-    }
-
-    override fun onTrimMemory(level: Int) {
-        for (tab in viewModel.tabsStates) {
-            if (!tab.selected) {
-                tab.recycleWebView()
-            }
-        }
-        super.onTrimMemory(level)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int,
@@ -896,7 +873,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         val intentFilter = IntentFilter("android.net.conn.CONNECTIVITY_CHANGE")
         registerReceiver(mConnectivityChangeReceiver, intentFilter)
         if (viewModel.currentTab.value != null) {
-            viewModel.currentTab.value!!.webView?.onResume()
+            viewModel.currentTab.value!!.onResume(webView, viewModel.geckoSession)
         }
         bindService(Intent(this, DownloadService::class.java), downloadsServiceConnection, Context.BIND_AUTO_CREATE)
     }
@@ -905,7 +882,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         viewModel.jsInterface.setActivity(null)
         unbindService(downloadsServiceConnection)
         if (viewModel.currentTab.value != null) {
-            viewModel.currentTab.value!!.webView?.onPause()
+            viewModel.currentTab.value!!.onPause(webView, viewModel.geckoSession)
         }
         if (mConnectivityChangeReceiver != null) unregisterReceiver(mConnectivityChangeReceiver)
         launch(Dispatchers.Main) { viewModel.saveState() }
@@ -916,7 +893,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     fun navigate(url: String) {
         etUrl.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.default_url_color))
         if (viewModel.currentTab.value != null) {
-            viewModel.currentTab.value!!.webView?.loadUrl(url)
+            viewModel.currentTab.value!!.loadUrl(url, webView, viewModel.geckoSession)
         } else {
             openInNewTab(url)
         }
@@ -1010,7 +987,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             override fun onAnimationEnd(animation: Animation) {
                 llMenuOverlay.visibility = View.GONE
                 if (viewModel.currentTab.value != null) {
-                    viewModel.currentTab.value!!.webView?.requestFocus()
+                    webView.requestFocus()
                 }
             }
         })

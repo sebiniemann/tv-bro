@@ -12,6 +12,8 @@ import com.phlox.tvwebbrowser.utils.Utils
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoView
 
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -33,7 +35,6 @@ data class WebTabState(var currentOriginalUrl: String? = null, var currentTitle:
     }
 
     //fields that don't need to be persisted to json
-    var webView: WebViewEx? = null
     var savedState: Bundle? = null
     var webPageInteractionDetected = false
     var webChromeClient: WebChromeClient? = null
@@ -131,22 +132,6 @@ data class WebTabState(var currentOriginalUrl: String? = null, var currentTitle:
         thumbnailFile.delete()
     }
 
-    fun restoreWebView() {
-        if (savedState != null) {
-            webView!!.restoreState(savedState)
-        } else if (currentOriginalUrl != null) {
-            webView!!.loadUrl(currentOriginalUrl)
-        }
-    }
-
-    fun recycleWebView() {
-        if (webView != null) {
-            savedState = Bundle()
-            webView!!.saveState(savedState)
-            webView = null
-        }
-    }
-
     fun updateFavIcon(context: Context, icon: Bitmap?) {
         favicon = icon
         if (favicon == null) {
@@ -183,5 +168,43 @@ data class WebTabState(var currentOriginalUrl: String? = null, var currentTitle:
                 }
             }
         }
+    }
+
+    //TODO: implement
+    fun canGoForward(): Boolean {
+        return true
+    }
+
+    //TODO: implement
+    fun goForward(geckoSession: GeckoSession) {
+        geckoSession.goForward()
+    }
+
+    //TODO: implement
+    fun canGoBack(): Boolean {
+        return true
+    }
+
+    //TODO: implement
+    fun goBack(geckoSession: GeckoSession) {
+        geckoSession.goBack()
+    }
+
+    //TODO: implement
+    fun reload(geckoSession: GeckoSession) {
+        geckoSession.reload()
+    }
+
+    //TODO: implement
+    fun onPause(webView: WebViewEx, geckoSession: GeckoSession) {
+
+    }
+
+    fun onResume(webView: WebViewEx, geckoSession: GeckoSession) {
+
+    }
+
+    fun loadUrl(url: String, webView: WebViewEx, geckoSession: GeckoSession) {
+        webView.loadUrl(url, geckoSession)
     }
 }

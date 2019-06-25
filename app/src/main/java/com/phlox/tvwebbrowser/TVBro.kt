@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.phlox.tvwebbrowser.singleton.initASQL
+import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoRuntimeSettings
 import java.net.CookieHandler
 import java.net.CookieManager
 import java.util.concurrent.ArrayBlockingQueue
@@ -51,5 +53,12 @@ class TVBro : Application() {
             val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
+    }
+
+    val geckoRuntime: GeckoRuntime by lazy {
+        val runtimeSettingsBuilder = GeckoRuntimeSettings.Builder()
+        runtimeSettingsBuilder.autoplayDefault(GeckoRuntimeSettings.AUTOPLAY_DEFAULT_ALLOWED)
+        GeckoRuntime.create(applicationContext,
+                runtimeSettingsBuilder.build())
     }
 }

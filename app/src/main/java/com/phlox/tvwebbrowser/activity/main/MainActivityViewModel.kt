@@ -39,6 +39,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoSession
 import java.io.File
 import java.util.*
 
@@ -48,6 +50,7 @@ class MainActivityViewModel: ViewModel() {
         var TAG: String = MainActivityViewModel::class.java.simpleName
     }
 
+    var geckoSession: GeckoSession
     val asql by lazy { ASQL.getDefault(TVBro.instance) }
     val currentTab = MutableLiveData<WebTabState>()
     val tabsStates = ArrayList<WebTabState>()
@@ -57,6 +60,11 @@ class MainActivityViewModel: ViewModel() {
     private var originalDownloadFileName: String? = null
     private var userAgentForDownload: String? = null
     private var operationAfterDownload: Download.OperationAfterDownload = Download.OperationAfterDownload.NOP
+
+    init {
+        geckoSession = GeckoSession()
+        geckoSession.open(TVBro.instance.geckoRuntime)
+    }
 
     fun saveState() {
         //WebTabState.saveTabs(TVBro.instance, tabsStates)
