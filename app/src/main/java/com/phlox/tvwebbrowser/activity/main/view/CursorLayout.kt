@@ -205,7 +205,7 @@ class CursorLayout : FrameLayout {
         val properties = arrayOfNulls<MotionEvent.PointerProperties>(1)
         val pp1 = MotionEvent.PointerProperties()
         pp1.id = 0
-        pp1.toolType = MotionEvent.TOOL_TYPE_FINGER
+        pp1.toolType = MotionEvent.TOOL_TYPE_MOUSE
         properties[0] = pp1
         val pointerCoords = arrayOfNulls<MotionEvent.PointerCoords>(1)
         val pc1 = MotionEvent.PointerCoords()
@@ -214,10 +214,12 @@ class CursorLayout : FrameLayout {
         pc1.pressure = 1f
         pc1.size = 1f
         pointerCoords[0] = pc1
-        val motionEvent = MotionEvent.obtain(downTime, eventTime,
-                action, 1, properties,
-                pointerCoords, 0, 0, 1f, 1f, 0, 0, 0, 0)
+        //val motionEvent = MotionEvent.obtain(downTime, eventTime,
+        //        action, 1, properties,
+        //        pointerCoords, 0, 0, 1f, 1f, 0, 0, 0, 0)
+        val motionEvent = MotionEvent.obtain(downTime, eventTime, action, x, y, 0)
         dispatchTouchEvent(motionEvent)
+        motionEvent.recycle()
     }
 
     private fun handleDirectionKeyEvent(event: KeyEvent, x: Int, y: Int, keyDown: Boolean) {
@@ -254,11 +256,19 @@ class CursorLayout : FrameLayout {
         }
     }
 
+    fun Int.clamp(): Int {
+        return when {
+            this == 0 -> this
+            this > 0 -> 1
+            else -> -1
+        }
+    }
+
     private fun scrollWebViewBy(wv: WebViewEx, scrollX: Int, scrollY: Int) {
         if (scrollX == 0 && scrollY == 0) {
             return
         }
-        if ((scrollX != 0 && wv.canScrollHorizontally(scrollX)) || (scrollY != 0 && wv.canScrollVertically(scrollY))) {
+        if ((scrollX != 0 && wv.canScrollHorizontally(scrollX.clamp())) || (scrollY != 0 && wv.canScrollVertically(scrollY.clamp()))) {
             wv.scrollTo(wv.scrollX + scrollX, wv.scrollY + scrollY)
         } else if (USE_SCROLL_HACK && !dpadCenterPressed) {
             var justStarted = false
